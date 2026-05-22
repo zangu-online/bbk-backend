@@ -13,12 +13,12 @@ const PORT =
 process.env.PORT || 3000;
 const admin = require("firebase-admin");
 
-const serviceAccount =
-require("./serviceAccountKey.json");
+// Load Firebase credentials from Render environment variable
+const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 
+// Initialize Firebase Admin SDK
 admin.initializeApp({
-credential:
-admin.credential.cert(serviceAccount)
+  credential: admin.credential.cert(serviceAccount)
 });
 
 const db = admin.firestore();
