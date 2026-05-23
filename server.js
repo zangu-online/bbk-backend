@@ -72,8 +72,7 @@ amount:req.body.amount,
 description:"BBK Deposit",
 
 callback_url:
-"https://callback_url:
-"https://bbk-backend.onrender.com/ipn",
+"https://boostyabankkenya.web.app/dashboard.html",
 
 notification_id:
 "YOUR_IPN_ID",
