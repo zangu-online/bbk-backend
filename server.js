@@ -1,29 +1,35 @@
+```js
 require("dotenv").config();
 
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
+const admin = require("firebase-admin");
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-const PORT =
-process.env.PORT || 3000;
-const admin = require("firebase-admin");
+const PORT = process.env.PORT || 3000;
 
-// Load Firebase credentials from Render environment variable
-const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+// ====================================
+// FIREBASE ADMIN
+// ====================================
 
-// Initialize Firebase Admin SDK
+const serviceAccount = JSON.parse(
+process.env.FIREBASE_SERVICE_ACCOUNT
+);
+
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
+credential: admin.credential.cert(serviceAccount)
 });
 
 const db = admin.firestore();
 
+// ====================================
 // GET PESAPAL TOKEN
+// ====================================
 
 async function getToken(){
 
@@ -40,20 +46,27 @@ process.env.PESAPAL_CONSUMER_SECRET
 }
 );
 
+if(!response.data.token){
+throw new Error("Failed to get token");
+}
+
 return response.data.token;
 
 }catch(error){
 
 console.log(
-error.response?.data ||
-error.message
+error.response?.data || error.message
 );
 
-}
+throw error;
 
 }
 
+}
+
+// ====================================
 // CREATE PAYMENT ORDER
+// ====================================
 
 app.post("/create-order", async(req,res)=>{
 
@@ -63,35 +76,36 @@ const token = await getToken();
 
 const order = {
 
-id:"BBK_" + Date.now(),
+id: "BBK_" + Date.now(),
 
-currency:"KES",
+currency: "KES",
 
-amount:req.body.amount,
+amount: req.body.amount,
 
-description:"BBK Deposit",
+description: "BBK Deposit",
 
 callback_url:
 "https://boostyabankkenya.web.app/dashboard.html",
 
 notification_id:
-"YOUR_IPN_ID",
+process.env.PESAPAL_IPN_ID,
 
 billing_address:{
 
-email_address:req.body.email,
+email_address: req.body.email,
 
-phone_number:"254700000000",
+phone_number: "254700000000",
 
-country_code:"KE",
+country_code: "KE",
 
-first_name:"BBK",
+first_name: "BBK",
 
-last_name:"USER"
+last_name: "USER"
 
 }
 
 };
+
 const response = await axios.post(
 
 "https://pay.pesapal.com/v3/api/Transactions/SubmitOrderRequest",
@@ -112,11 +126,10 @@ res.json(response.data);
 }catch(error){
 
 console.log(
-error.response?.data ||
-error.message
+error.response?.data || error.message
 );
 
-res.json({
+res.status(500).json({
 success:false,
 message:"Payment failed"
 });
@@ -125,26 +138,9 @@ message:"Payment failed"
 
 });
 
-// TEST ROUTE
-
-app.get("/", (req,res)=>{
-
-res.send("BBK Pesapal Backend Running");
-
-});
-
-app.listen(PORT, ()=>{
-
-console.log(
-"Server running on port " + PORT
-);
-
-});
-
-
-// Here Pesapal confirms payment
-// You will update Firestore balance here later
-
+// ====================================
+// PESAPAL IPN CALLBACK
+// ====================================
 
 app.post("/ipn", async (req, res) => {
 
@@ -154,11 +150,13 @@ const data = req.body;
 
 console.log("IPN:", data);
 
-// Example structure (Pesapal)
 const status = data?.payment_status;
 
-const amount = Number(data?.amount || 0);
-const userId = data?.reference || "unknown";
+const amount =
+Number(data?.amount || 0);
+
+const userId =
+data?.reference || "unknown";
 
 if(status === "COMPLETED"){
 
@@ -181,14 +179,14 @@ await db.collection("transactions").add({
 userId,
 amount,
 status:"success",
-createdAt: new Date()
+createdAt:new Date()
 });
 
 }
 
 res.sendStatus(200);
 
-} catch(err){
+}catch(err){
 
 console.log(err);
 
@@ -197,3 +195,26 @@ res.sendStatus(500);
 }
 
 });
+
+// ====================================
+// TEST ROUTE
+// ====================================
+
+app.get("/", (req,res)=>{
+
+res.send("BBK Pesapal Backend Running");
+
+});
+
+// ====================================
+// START SERVER
+// ====================================
+
+app.listen(PORT, ()=>{
+
+console.log(
+"Server running on port " + PORT
+);
+
+});
+```
